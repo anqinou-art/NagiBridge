@@ -439,11 +439,12 @@ public class ModEntry : Mod
 
             var next = _pathQueue.Peek();
             var farmer = Game1.player;
-            var target = new Vector2(next.X * 64 + 32, next.Y * 64 + 32);
+            var target = new Vector2(next.X, next.Y) * Game1.tileSize;
             var diff = target - farmer.Position;
 
             if (diff.Length() < 6f)
             {
+                farmer.Position = target;
                 _pathQueue.Dequeue();
                 _pathTickCooldown = 0;
             }
@@ -929,8 +930,14 @@ public class ModEntry : Mod
                 farmer.CurrentToolIndex = farmer.Items.IndexOf(tool);
             }
 
+            var toolTile = GetToolTile(farmer);
             farmer.BeginUsingTool();
-            tcs.SetResult(new { ok = true, tool = farmer.CurrentTool?.Name ?? "none" });
+            tcs.SetResult(new
+            {
+                ok = true,
+                tool = farmer.CurrentTool?.Name ?? "none",
+                tile = new { x = (int)toolTile.X, y = (int)toolTile.Y }
+            });
         });
 
         return tcs.Task.GetAwaiter().GetResult();
@@ -1412,9 +1419,9 @@ public class ModEntry : Mod
                 return;
             }
 
-            var facingTile = GetFacingTile(farmer);
+            var targetTile = item is Tool ? GetToolTile(farmer) : GetFacingTile(farmer);
             var loc = farmer.currentLocation;
-            int ftx = (int)facingTile.X, fty = (int)facingTile.Y;
+            int ftx = (int)targetTile.X, fty = (int)targetTile.Y;
             var tileVec = new Vector2(ftx, fty);
 
             if (item is Tool tool && !force)
@@ -3648,6 +3655,15 @@ public class ModEntry : Mod
             3 => new Vector2(x - 1, y),
             _ => new Vector2(x, y)
         };
+    }
+
+    private Vector2 GetToolTile(Farmer farmer)
+    {
+        var toolLocation = farmer.GetToolLocation(ignoreClick: true);
+        return new Vector2(
+            (float)Math.Floor(toolLocation.X / Game1.tileSize),
+            (float)Math.Floor(toolLocation.Y / Game1.tileSize)
+        );
     }
 
     // --- Helpers ---
